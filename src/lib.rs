@@ -101,4 +101,27 @@ mod tests {
 
         assert_eq!(1, entries.len());
     }
+
+    #[test]
+    fn test_filename_bytes() {
+        // Test that filenames are preserved correctly with lossy conversion
+        let file = std::fs::File::open(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("testdata/readme.zip"),
+        )
+        .unwrap();
+        let zip: ZipIterator<File, 32> = file.into();
+
+        let mut entries = Vec::new();
+        for entry in zip {
+            entries.push(entry);
+        }
+
+        assert_eq!(1, entries.len());
+        let entry = &entries[0];
+        let filename = entry.name();
+        
+        // The filename should be converted to String using from_utf8_lossy
+        // For this test file, it should be "README"
+        assert_eq!(filename, "README");
+    }
 }

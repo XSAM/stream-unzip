@@ -34,7 +34,7 @@ pub struct LocalFileHeader {
     pub uncompressed_size: u32,
     pub file_name_length: u16,
     pub extra_field_length: u16,
-    pub filename: String,
+    pub filename: Vec<u8>,
     pub extra_field: Vec<u8>,
 }
 
@@ -128,7 +128,7 @@ fn decode_header(b: &mut BytesMut) -> Option<Header> {
             b.advance(base_size);
         }
 
-        let filename = String::from_utf8(b.split_to(file_name_length as usize).to_vec()).unwrap();
+        let filename = b.split_to(file_name_length as usize).to_vec();
         let extra_field = b.split_to(extra_field_length as usize).to_vec();
         let h = Header::LocalFile(LocalFileHeader {
             version,
@@ -323,10 +323,11 @@ pub struct ZipEntry {
 
 impl ZipEntry {
     pub fn new(header: LocalFileHeader) -> Self {
+        let name = String::from_utf8_lossy(&header.filename).into_owned();
         Self {
             bytes: BytesMut::with_capacity(header.compressed_size as usize),
             header,
-            name: String::new(),
+            name,
         }
     }
     pub fn name(&self) -> &str {
@@ -347,6 +348,7 @@ impl ZipEntry {
         Ok(DeflatedEntry {
             bytes: inflate::inflate_bytes(&bytes).unwrap().into(),
             header: self.header,
+            name: self.name,
         })
     }
 }
@@ -355,6 +357,7 @@ impl ZipEntry {
 pub struct DeflatedEntry {
     header: LocalFileHeader,
     bytes: Bytes,
+    name: String,
 }
 
 impl DeflatedEntry {
@@ -370,7 +373,7 @@ impl DeflatedEntry {
 
     /// Returns the filename of the zip entry.
     pub fn name(&self) -> &str {
-        &self.header.filename
+        &self.name
     }
 
     /// Returns the compressed size of the data.
